@@ -28,10 +28,11 @@ export default function Login() {
 
       <form onSubmit={submit} className="space-y-3">
         <input
-          type="email"
+          type="text"
           required
+          autoCapitalize="none"
           autoComplete="username"
-          placeholder="الإيميل"
+          placeholder="اليوزر أو الإيميل"
           dir="ltr"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

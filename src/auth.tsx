@@ -68,7 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     setNotice(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.includes('@') ? email.trim() : email.trim().toLowerCase() + '@prosmart.app',
+      password,
+    });
     if (!error) return null;
     const m = error.message.toLowerCase();
     if (m.includes('invalid login')) return 'الإيميل أو الباسورد غلط';

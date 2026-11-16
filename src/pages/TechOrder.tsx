@@ -4,6 +4,7 @@ import { MapPin, Phone, LogIn, LogOut, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../auth';
 import Photos from '../components/Photos';
+import SignaturePad from '../components/SignaturePad';
 import { Badge, L, btn, card, fmt, inp, taskLabel } from '../ui';
 
 interface Order {
@@ -47,6 +48,7 @@ export default function TechOrder() {
   const [creds, setCreds] = useState<Cred[]>([]);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sig, setSig] = useState('');
   const [tasks, setTasks] = useState<{ id: string; title: string; bonus: number; status: string; tech_note: string | null }[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
@@ -68,6 +70,7 @@ export default function TechOrder() {
     setTasks(tk ?? []);
     const { data: rep } = await supabase.from('site_reports').select('*').eq('work_order_id', id!).maybeSingle();
     if (rep) {
+      setSig(rep.signature_path ?? '');
       setR({
         work_done: rep.work_done ?? '',
         modules_count: rep.modules_count,
@@ -121,7 +124,7 @@ export default function TechOrder() {
     setMsg('');
     const { data, error } = await supabase
       .from('site_reports')
-      .upsert({ work_order_id: id!, ...r }, { onConflict: 'work_order_id' })
+      .upsert({ work_order_id: id!, ...r, signature_path: sig || null }, { onConflict: 'work_order_id' })
       .select('id')
       .single();
     if (error || !data) {
@@ -274,6 +277,10 @@ export default function TechOrder() {
           {r.needs_followup && (
             <textarea rows={2} placeholder="إيه المتبقي؟" className={inp} value={r.followup_notes} onChange={(e) => setR({ ...r, followup_notes: e.target.value })} />
           )}
+          <div className="space-y-1">
+            <span className="text-sm text-white/70">توقيع العميل {sig && '✓'}</span>
+            <SignaturePad orderId={o.id} onSaved={setSig} />
+          </div>
           {msg && <p className="text-sm text-brand">{msg}</p>}
           <div className="flex gap-2">
             <button disabled={busy} onClick={save} className="flex-1 rounded-xl border border-brand py-2.5 font-bold text-brand disabled:opacity-50">
