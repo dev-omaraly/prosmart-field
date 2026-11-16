@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Badge, L, btn, card, fmt, inp } from '../../ui';
+import Photos from '../../components/Photos';
+import { Badge, L, btn, card, fmt, inp, taskLabel } from '../../ui';
 
 interface Tech {
   id: string;
@@ -15,6 +16,7 @@ interface Row {
   scheduled_at: string;
   status: string;
   team_leader_id: string | null;
+  work_order_tasks: { id: string; title: string; assigned_to: string; bonus: number; status: string; tech_note: string | null }[];
   work_order_techs: {
     tech_id: string;
     arrived_at: string | null;
@@ -30,13 +32,18 @@ export default function Orders() {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('work_orders')
-      .select('*, work_order_techs(tech_id,arrived_at,departed_at,profiles(full_name))')
+      .select('*, work_order_tasks(id,title,assigned_to,bonus,status,tech_note), work_order_techs(tech_id,arrived_at,departed_at,profiles(full_name))')
       .order('scheduled_at', { ascending: false });
     setRows((data ?? []) as unknown as Row[]);
   }, []);
   useEffect(() => {
     load();
   }, [load]);
+
+  const review = async (id: string, status: string) => {
+    await supabase.from('work_order_tasks').update({ status }).eq('id', id);
+    load();
+  };
 
   return (
     <div>
@@ -75,6 +82,31 @@ export default function Orders() {
                 </span>
               ))}
             </div>
+            {r.work_order_tasks.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {r.work_order_tasks.map((t) => {
+                  const who = r.work_order_techs.find((x) => x.tech_id === t.assigned_to)?.profiles?.full_name;
+                  return (
+                    <div key={t.id} className="rounded-xl bg-navy-800 p-2 text-sm">
+                      <div className="flex justify-between gap-2">
+                        <span>{t.title} · {who} · {t.bonus} ج</span>
+                        <span className="whitespace-nowrap text-xs text-brand">{taskLabel[t.status]}</span>
+                      </div>
+                      {t.tech_note && <p className="text-xs text-white/60">{t.tech_note}</p>}
+                      {t.status === 'done' && (
+                        <div className="mt-1 flex gap-2">
+                          <button onClick={() => review(t.id, 'approved')} className="rounded-lg bg-brand px-3 py-1 text-xs font-bold text-navy-950">موافقة</button>
+                          <button onClick={() => review(t.id, 'rejected')} className="rounded-lg border border-red-300/50 px-3 py-1 text-xs text-red-200">رفض</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="mt-3">
+              <Photos orderId={r.id} />
+            </div>
           </div>
         ))}
         {!rows.length && <p className="text-white/50">مفيش أوامر لسه.</p>}
@@ -87,6 +119,9 @@ function NewOrder({ onDone }: { onDone: () => void }) {
   const [techs, setTechs] = useState<Tech[]>([]);
   const [sel, setSel] = useState<string[]>([]);
   const [leader, setLeader] = useState('');
+  const [tasks, setTasks] = useState<{ title: string; assigned_to: string; bonus: number }[]>([]);
+  const upd = (i: number, k: string, v: string | number) =>
+    setTasks(tasks.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const [f, setF] = useState({
     client_name: '',
     client_phone: '',
@@ -137,6 +172,16 @@ function NewOrder({ onDone }: { onDone: () => void }) {
     const { error: e2 } = await supabase
       .from('work_order_techs')
       .insert(sel.map((t) => ({ work_order_id: data.id, tech_id: t })));
+    const tk = tasks.filter((t) => t.title.trim() && sel.includes(t.assigned_to));
+    if (!e2 && tk.length) {
+      const { error: e3 } = await supabase
+        .from('work_order_tasks')
+        .insert(tk.map((t) => ({ ...t, work_order_id: data.id })));
+      if (e3) {
+        setBusy(false);
+        return setErr(e3.message);
+      }
+    }
     setBusy(false);
     if (e2) return setErr(e2.message);
     onDone();
@@ -179,6 +224,23 @@ function NewOrder({ onDone }: { onDone: () => void }) {
           </div>
         ))}
         {!techs.length && <p className="text-sm text-white/50">مفيش فنيين مسجلين لسه.</p>}
+      </div>
+      <div className="space-y-2">
+        <span className="text-sm text-white/70">المهام (مهمة وبونص لكل فني)</span>
+        {tasks.map((t, i) => (
+          <div key={i} className="grid grid-cols-6 gap-2 rounded-xl bg-navy-800 p-2">
+            <input placeholder="المهمة (سمارت، كاميرات...)" className={inp + ' col-span-6'} value={t.title} onChange={(e) => upd(i, 'title', e.target.value)} />
+            <select className={inp + ' col-span-3'} value={t.assigned_to} onChange={(e) => upd(i, 'assigned_to', e.target.value)}>
+              <option value="">لمين؟</option>
+              {techs.filter((x) => sel.includes(x.id)).map((x) => (
+                <option key={x.id} value={x.id}>{x.full_name}</option>
+              ))}
+            </select>
+            <input type="number" min={0} placeholder="البونص" className={inp + ' col-span-2'} value={t.bonus} onChange={(e) => upd(i, 'bonus', Number(e.target.value))} />
+            <button type="button" onClick={() => setTasks(tasks.filter((_, j) => j !== i))} className="text-sm text-red-300">حذف</button>
+          </div>
+        ))}
+        <button type="button" onClick={() => setTasks([...tasks, { title: '', assigned_to: '', bonus: 0 }])} className="text-sm text-brand">+ مهمة</button>
       </div>
       {err && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-200">{err}</p>}
       <button disabled={busy} className={btn + ' w-full'}>

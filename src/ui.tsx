@@ -33,3 +33,10 @@ export function L({ t, children }: { t: string; children: ReactNode }) {
 
 export const fmt = (d: string) =>
   new Date(d).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
+
+export const taskLabel: Record<string, string> = {
+  pending: 'لسه',
+  done: 'مستني موافقة',
+  approved: 'تمت الموافقة',
+  rejected: 'مرفوضة',
+};

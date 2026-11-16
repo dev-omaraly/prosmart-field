@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import { MapPin, Phone, LogIn, LogOut, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../auth';
-import { Badge, L, btn, card, fmt, inp } from '../ui';
+import Photos from '../components/Photos';
+import { Badge, L, btn, card, fmt, inp, taskLabel } from '../ui';
 
 interface Order {
   id: string;
@@ -46,6 +47,8 @@ export default function TechOrder() {
   const [creds, setCreds] = useState<Cred[]>([]);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [tasks, setTasks] = useState<{ id: string; title: string; bonus: number; status: string; tech_note: string | null }[]>([]);
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const { data: ord } = await supabase.from('work_orders').select('*').eq('id', id!).single();
@@ -57,6 +60,12 @@ export default function TechOrder() {
       .eq('tech_id', uid)
       .single();
     setMe(m);
+    const { data: tk } = await supabase
+      .from('work_order_tasks')
+      .select('id,title,bonus,status,tech_note')
+      .eq('work_order_id', id!)
+      .eq('assigned_to', uid);
+    setTasks(tk ?? []);
     const { data: rep } = await supabase.from('site_reports').select('*').eq('work_order_id', id!).maybeSingle();
     if (rep) {
       setR({
@@ -148,6 +157,12 @@ export default function TechOrder() {
     load();
   };
 
+  const doTask = async (tid: string) => {
+    const { error } = await supabase.rpc('submit_task', { task: tid, note: notes[tid] ?? '' });
+    if (error) setMsg(error.message);
+    else load();
+  };
+
   const num = (k: 'modules_count' | 'cameras_count' | 'intercoms_count' | 'cable_length_m') => (
     <input type="number" min={0} step="any" className={inp} value={r[k]} onChange={(e) => setR({ ...r, [k]: Number(e.target.value) })} />
   );
@@ -187,6 +202,34 @@ export default function TechOrder() {
       )}
       {me?.arrived_at && <p className="text-sm text-brand">وقت الوصول: {fmt(me.arrived_at)}</p>}
       {me?.departed_at && <p className="text-sm text-brand">وقت الانصراف: {fmt(me.departed_at)}</p>}
+
+      {tasks.length > 0 && (
+        <div className={card + ' space-y-2'}>
+          <h2 className="font-bold">مهامي</h2>
+          {tasks.map((t) => (
+            <div key={t.id} className="rounded-xl bg-navy-800 p-3 text-sm">
+              <div className="flex justify-between gap-2">
+                <b>{t.title} · {t.bonus} ج</b>
+                <span className="whitespace-nowrap text-xs text-brand">{taskLabel[t.status]}</span>
+              </div>
+              {me?.arrived_at && (t.status === 'pending' || t.status === 'rejected') && (
+                <div className="mt-2 space-y-2">
+                  <textarea rows={2} placeholder="عملت إيه في المهمة دي؟" className={inp} value={notes[t.id] ?? ''} onChange={(e) => setNotes({ ...notes, [t.id]: e.target.value })} />
+                  <button onClick={() => doTask(t.id)} className={btn + ' w-full'}>تمت المهمة</button>
+                </div>
+              )}
+              {t.tech_note && t.status !== 'pending' && <p className="mt-1 text-xs text-white/60">{t.tech_note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {me?.arrived_at && (
+        <div className={card + ' space-y-2'}>
+          <h2 className="font-bold">صور الموقع</h2>
+          <Photos orderId={o.id} />
+        </div>
+      )}
 
       {me?.arrived_at && (
         <div className={card + ' space-y-3'}>
