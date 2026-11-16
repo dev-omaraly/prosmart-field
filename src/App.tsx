@@ -1,25 +1,35 @@
 import type { ReactNode } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { ClipboardList, FileText, Package, Users, Wrench } from 'lucide-react';
+import { Bell, ClipboardList, FileText, Package, Settings as Cog, Wrench } from 'lucide-react';
 import { useAuth } from './auth';
 import { homePath, type Role } from './types';
 import Shell, { type NavItem } from './components/Shell';
 import Login from './pages/Login';
 import Placeholder from './pages/Placeholder';
 import Stock from './pages/Stock';
+import Reports from './pages/admin/Reports';
+import Inbox from './pages/Inbox';
+import Settings from './pages/Settings';
 import Orders from './pages/admin/Orders';
 import TechOrders from './pages/TechOrders';
 import TechOrder from './pages/TechOrder';
 
 const adminNav: NavItem[] = [
-  { to: '/admin', label: 'أوامر الشغل', icon: ClipboardList, end: true },
+  { to: '/admin', label: 'الأوامر', icon: ClipboardList, end: true },
   { to: '/admin/stock', label: 'المخزن', icon: Package },
-  { to: '/admin/team', label: 'الفريق', icon: Users },
   { to: '/admin/reports', label: 'التقارير', icon: FileText },
+  { to: '/admin/inbox', label: 'التنبيهات', icon: Bell },
+  { to: '/admin/settings', label: 'الإعدادات', icon: Cog },
 ];
-const techNav: NavItem[] = [{ to: '/tech', label: 'أوامري', icon: Wrench, end: true }];
+const techNav: NavItem[] = [
+  { to: '/tech', label: 'أوامري', icon: Wrench, end: true },
+  { to: '/tech/inbox', label: 'التنبيهات', icon: Bell },
+  { to: '/tech/settings', label: 'الإعدادات', icon: Cog },
+];
 const storeNav: NavItem[] = [
-  { to: '/store', label: 'المنتجات', icon: Package, end: true },
+  { to: '/store', label: 'المخزن', icon: Package, end: true },
+  { to: '/store/inbox', label: 'التنبيهات', icon: Bell },
+  { to: '/store/settings', label: 'الإعدادات', icon: Cog },
 ];
 
 function Splash() {
@@ -60,8 +70,9 @@ export default function App() {
         >
           <Route index element={<Orders />} />
           <Route path="stock" element={<Stock />} />
-          <Route path="team" element={<Placeholder title="الفريق" />} />
-          <Route path="reports" element={<Placeholder title="التقارير" />} />
+          <Route path="inbox" element={<Inbox />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="reports" element={<Reports />} />
         </Route>
 
         <Route
@@ -73,6 +84,8 @@ export default function App() {
           }
         >
           <Route index element={<TechOrders />} />
+          <Route path="inbox" element={<Inbox />} />
+          <Route path="settings" element={<Settings />} />
           <Route path=":id" element={<TechOrder />} />
         </Route>
 
@@ -85,6 +98,8 @@ export default function App() {
           }
         >
           <Route index element={<Stock />} />
+          <Route path="inbox" element={<Inbox />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { LogOut, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../auth';
 import { roleLabel } from '../types';
@@ -11,7 +13,22 @@ export interface NavItem {
 }
 
 export default function Shell({ nav }: { nav: NavItem[] }) {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, session } = useAuth();
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (!session) return;
+    const go = async () => {
+      const { count } = await supabase
+        .from('notification_recipients')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.user.id)
+        .is('read_at', null);
+      setUnread(count ?? 0);
+    };
+    go();
+    const t = setInterval(go, 30000);
+    return () => clearInterval(t);
+  }, [session]);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col">
@@ -51,7 +68,12 @@ export default function Shell({ nav }: { nav: NavItem[] }) {
                 }`
               }
             >
-              <Icon size={22} />
+              <span className="relative">
+                <Icon size={22} />
+                {to.endsWith('/inbox') && unread > 0 && (
+                  <i className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+                )}
+              </span>
               {label}
             </NavLink>
           ))}
