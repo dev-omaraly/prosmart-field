@@ -6,6 +6,9 @@ import { homePath, type Role } from './types';
 import Shell, { type NavItem } from './components/Shell';
 import Login from './pages/Login';
 import Placeholder from './pages/Placeholder';
+import Orders from './pages/admin/Orders';
+import TechOrders from './pages/TechOrders';
+import TechOrder from './pages/TechOrder';
 
 const adminNav: NavItem[] = [
   { to: '/admin', label: 'أوامر الشغل', icon: ClipboardList, end: true },
@@ -55,7 +58,7 @@ export default function App() {
             </RequireRole>
           }
         >
-          <Route index element={<Placeholder title="أوامر الشغل" />} />
+          <Route index element={<Orders />} />
           <Route path="stock" element={<Placeholder title="المخزن" />} />
           <Route path="team" element={<Placeholder title="الفريق" />} />
           <Route path="reports" element={<Placeholder title="التقارير" />} />
@@ -69,7 +72,8 @@ export default function App() {
             </RequireRole>
           }
         >
-          <Route index element={<Placeholder title="أوامر الشغل بتاعتي" />} />
+          <Route index element={<TechOrders />} />
+          <Route path=":id" element={<TechOrder />} />
         </Route>
 
         <Route
