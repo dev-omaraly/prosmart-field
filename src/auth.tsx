@@ -70,9 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNotice(null);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (!error) return null;
-    return error.message.toLowerCase().includes('invalid')
-      ? 'الإيميل أو الباسورد غلط'
-      : 'حصل خطأ، جرب تاني';
+    const m = error.message.toLowerCase();
+    if (m.includes('invalid login')) return 'الإيميل أو الباسورد غلط';
+    if (m.includes('not confirmed')) return 'الحساب لسه متفعلش، كلم الإدارة';
+    return 'خطأ: ' + error.message;
   };
 
   const signOut = async () => {

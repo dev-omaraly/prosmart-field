@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { ClipboardList, FileText, Package, ScanBarcode, Users, Wrench } from 'lucide-react';
+import { ClipboardList, FileText, Package, Users, Wrench } from 'lucide-react';
 import { useAuth } from './auth';
 import { homePath, type Role } from './types';
 import Shell, { type NavItem } from './components/Shell';
 import Login from './pages/Login';
 import Placeholder from './pages/Placeholder';
+import Stock from './pages/Stock';
 import Orders from './pages/admin/Orders';
 import TechOrders from './pages/TechOrders';
 import TechOrder from './pages/TechOrder';
@@ -19,7 +20,6 @@ const adminNav: NavItem[] = [
 const techNav: NavItem[] = [{ to: '/tech', label: 'أوامري', icon: Wrench, end: true }];
 const storeNav: NavItem[] = [
   { to: '/store', label: 'المنتجات', icon: Package, end: true },
-  { to: '/store/scan', label: 'مسح باركود', icon: ScanBarcode },
 ];
 
 function Splash() {
@@ -59,7 +59,7 @@ export default function App() {
           }
         >
           <Route index element={<Orders />} />
-          <Route path="stock" element={<Placeholder title="المخزن" />} />
+          <Route path="stock" element={<Stock />} />
           <Route path="team" element={<Placeholder title="الفريق" />} />
           <Route path="reports" element={<Placeholder title="التقارير" />} />
         </Route>
@@ -84,8 +84,7 @@ export default function App() {
             </RequireRole>
           }
         >
-          <Route index element={<Placeholder title="المنتجات" />} />
-          <Route path="scan" element={<Placeholder title="مسح باركود" />} />
+          <Route index element={<Stock />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
