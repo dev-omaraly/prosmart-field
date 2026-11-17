@@ -9,7 +9,10 @@ export default function Settings() {
   const { profile, session } = useAuth();
   const [name, setName] = useState(profile?.full_name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
+  const [cur, setCur] = useState('');
   const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
   const saveProfile = async () => {
@@ -17,10 +20,27 @@ export default function Settings() {
     setMsg(error ? error.message : 'تم حفظ البيانات ✓ (الاسم هيتحدث بعد إعادة فتح التطبيق)');
   };
   const savePw = async () => {
-    if (pw.length < 6) return setMsg('الباسورد لازم 6 حروف على الأقل');
+    setMsg('');
+    if (!navigator.onLine) return setMsg('تغيير الباسورد محتاج نت.');
+    if (!cur) return setMsg('اكتب الباسورد الحالي');
+    if (pw.length < 8) return setMsg('الباسورد الجديد لازم 8 حروف أو أرقام على الأقل');
+    if (pw !== pw2) return setMsg('تأكيد الباسورد مش متطابق');
+    if (pw === cur) return setMsg('الباسورد الجديد لازم يكون مختلف عن الحالي');
+    setPwBusy(true);
+    // verify the current password first
+    const { error: e1 } = await supabase.auth.signInWithPassword({ email: session!.user.email!, password: cur });
+    if (e1) {
+      setPwBusy(false);
+      return setMsg('الباسورد الحالي غلط');
+    }
     const { error } = await supabase.auth.updateUser({ password: pw });
+    setPwBusy(false);
     setMsg(error ? error.message : 'تم تغيير الباسورد ✓');
-    setPw('');
+    if (!error) {
+      setCur('');
+      setPw('');
+      setPw2('');
+    }
   };
 
   return (
@@ -34,8 +54,10 @@ export default function Settings() {
       </div>
       <div className={card + ' space-y-3'}>
         <h2 className="font-bold">تغيير الباسورد</h2>
-        <input type="password" dir="ltr" placeholder="الباسورد الجديد" className={inp} value={pw} onChange={(e) => setPw(e.target.value)} />
-        <button onClick={savePw} className={btn + ' w-full'}>تغيير</button>
+        <input type="password" dir="ltr" autoComplete="current-password" placeholder="الباسورد الحالي" className={inp} value={cur} onChange={(e) => setCur(e.target.value)} />
+        <input type="password" dir="ltr" autoComplete="new-password" placeholder="الباسورد الجديد (8 على الأقل)" className={inp} value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input type="password" dir="ltr" autoComplete="new-password" placeholder="أكّد الباسورد الجديد" className={inp} value={pw2} onChange={(e) => setPw2(e.target.value)} />
+        <button disabled={pwBusy} onClick={savePw} className={btn + ' w-full'}>{pwBusy ? 'جاري التغيير...' : 'تغيير'}</button>
       </div>
       {msg && <p className="text-sm text-brand">{msg}</p>}
       {profile?.role === 'admin' && <Users />}
@@ -44,28 +66,46 @@ export default function Settings() {
 }
 
 function Users() {
+  const { profile: me } = useAuth();
   const [rows, setRows] = useState<Profile[]>([]);
+  const [note, setNote] = useState('');
   const load = () => supabase.from('profiles').select('*').order('full_name').then(({ data }) => setRows((data ?? []) as Profile[]));
   useEffect(() => {
     load();
   }, []);
   const upd = async (id: string, patch: Partial<Profile>) => {
-    await supabase.from('profiles').update(patch).eq('id', id);
+    const { error } = await supabase.from('profiles').update(patch).eq('id', id);
+    setNote(error ? error.message : '');
     load();
+  };
+  const resetPw = async (u: Profile) => {
+    const pw = window.prompt(`باسورد جديد لـ ${u.full_name || 'المستخدم'} (8 على الأقل):`);
+    if (!pw) return;
+    if (pw.length < 8) return setNote('الباسورد لازم 8 حروف على الأقل');
+    const { data, error } = await supabase.functions.invoke('admin-reset-password', { body: { user_id: u.id, password: pw } });
+    setNote(error || data?.error ? (data?.error ?? error?.message ?? 'حصل خطأ') : `تم تغيير باسورد ${u.full_name} ✓ — اديهوله بنفسك`);
   };
   return (
     <div className={card + ' space-y-2'}>
       <h2 className="font-bold">المستخدمين والصلاحيات</h2>
       <AddUser onDone={load} />
+      {note && <p className="text-sm text-brand">{note}</p>}
       {rows.map((u) => (
-        <div key={u.id} className="flex items-center justify-between gap-2 rounded-xl bg-navy-800 p-2 text-sm">
+        <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-navy-800 p-2 text-sm">
           <input key={u.id + u.full_name} defaultValue={u.full_name} placeholder="الاسم" onBlur={(e) => e.target.value !== u.full_name && upd(u.id, { full_name: e.target.value })} className="w-28 rounded-lg border border-navy-600 bg-navy-900 px-2 py-1" />
           <div className="flex items-center gap-2">
             <select className="rounded-lg border border-navy-600 bg-navy-900 px-2 py-1" value={u.role} onChange={(e) => upd(u.id, { role: e.target.value as Role })}>
               {(Object.keys(roleLabel) as Role[]).map((r) => (<option key={r} value={r}>{roleLabel[r]}</option>))}
             </select>
             <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={u.is_active} onChange={(e) => upd(u.id, { is_active: e.target.checked })} />نشط</label>
+            <button onClick={() => resetPw(u)} className="rounded-lg border border-navy-600 px-2 py-1 text-xs">باسورد</button>
           </div>
+          {me?.can_manage_orders && u.role === 'admin' && (
+            <label className="flex w-full items-center gap-1 text-xs text-amber-200">
+              <input type="checkbox" checked={!!u.can_manage_orders} onChange={(e) => upd(u.id, { can_manage_orders: e.target.checked })} />
+              تعديل/حذف أوامر الشغل
+            </label>
+          )}
         </div>
       ))}
     </div>
@@ -112,7 +152,7 @@ function AddUser({ onDone }: { onDone: () => void }) {
           <input required placeholder="اسم الفني" className={inp} value={f.name} onChange={set('name')} />
           <input placeholder="رقم التليفون" dir="ltr" className={inp} value={f.phone} onChange={set('phone')} />
           <input required placeholder="اليوزر (مثلًا ahmed)" dir="ltr" autoCapitalize="none" className={inp} value={f.username} onChange={set('username')} />
-          <input required minLength={6} placeholder="الباسورد (6 على الأقل)" dir="ltr" className={inp} value={f.password} onChange={set('password')} />
+          <input required minLength={8} placeholder="الباسورد (8 على الأقل)" dir="ltr" className={inp} value={f.password} onChange={set('password')} />
           <select className={inp} value={f.role} onChange={set('role')}>
             {(Object.keys(roleLabel) as Role[]).map((r) => (<option key={r} value={r}>{roleLabel[r]}</option>))}
           </select>

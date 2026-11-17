@@ -6,6 +6,7 @@ export interface Profile {
   phone: string | null;
   role: Role;
   is_active: boolean;
+  can_manage_orders?: boolean; // may edit / delete work orders (set by the owner admin)
 }
 
 export const roleLabel: Record<Role, string> = {

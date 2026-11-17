@@ -32,8 +32,7 @@ export default function Issue() {
     setStock((data ?? []) as Bal[]);
   }, []);
   useEffect(() => {
-    supabase.from('work_orders').select('id,order_no,client_name,status').not('status', 'in', '(cancelled)').order('scheduled_at', { ascending: false }).limit(60)
-      .then(({ data }) => setOrders((data ?? []) as Ord[]));
+    supabase.rpc('orders_for_issue').then(({ data }) => setOrders((data ?? []) as Ord[]));
     loadStock();
   }, [loadStock]);
 

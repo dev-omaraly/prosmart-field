@@ -3,6 +3,8 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import type { Profile } from './types';
 import { unregisterPush } from './lib/push';
+import { AUTH_STORAGE_KEY } from './lib/config';
+import { setCurrentUser } from './lib/offline';
 
 interface AuthCtx {
   session: Session | null;
@@ -16,6 +18,17 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx>(null!);
 export const useAuth = () => useContext(Ctx);
 
+// When the phone is offline and the saved token has expired, supabase-js cannot refresh it and reports "no session".
+// We then keep the user inside the app using the saved session; the token is refreshed automatically once online.
+function storedSession(): Session | null {
+  try {
+    const j = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? 'null');
+    return j?.user && j?.access_token ? (j as Session) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -24,10 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (!data.session) setLoading(false);
+      const s = data.session ?? (navigator.onLine ? null : storedSession());
+      setSession(s);
+      if (!s) setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (!s && event !== 'SIGNED_OUT') return; // INITIAL_SESSION without a token (offline) must not log the user out
       setSession(s);
       if (!s) {
         setProfile(null);
@@ -38,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const uid = session?.user.id;
+  setCurrentUser(uid ?? null);
 
   useEffect(() => {
     if (!uid) return;
@@ -48,9 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('id', uid)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (cancelled) return;
         const p = data as Profile | null;
+        if (!p && error && !navigator.onLine) {
+          setLoading(false); // offline and nothing cached yet: stay on login screen
+          return;
+        }
         if (!p) {
           setNotice('الحساب غير مكتمل، كلم الإدارة.');
           supabase.auth.signOut();
@@ -82,7 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await unregisterPush();
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      // no internet: drop the local session so the user is really signed out
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      window.location.reload();
+    }
   };
 
   return (

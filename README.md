@@ -2,7 +2,8 @@
 
 ## 1) قاعدة البيانات (Supabase → SQL Editor، بالترتيب)
 - `sql/step7.sql` (لو لسه ما اتشغلش)
-- `sql/step8.sql` ← جديد: الإشعارات + صرف المخزن
+- `sql/step8.sql`: الإشعارات + صرف المخزن
+- `sql/step10.sql` ← جديد: صلاحيات أمين المخزن + تعديل/حذف الأوامر لإداري معين (وفي آخره سطر تحدد بيه الإداري صاحب الصلاحية)
 
 ## 2) تشغيل الإشعارات (مرة واحدة)
 1. **Firebase**: console.firebase.google.com → Create project → Add Android app باسم الحزمة `com.prosmart.field` → نزّل `google-services.json`.
@@ -24,3 +25,12 @@ Settings → Pages → Source: GitHub Actions. كل Push على main بينشر 
 
 ## تشغيل محلي
 npm install && npm run dev
+
+## 5) إعادة تعيين باسورد مستخدم (اختياري)
+Supabase → Edge Functions → Deploy a new function → اسمها `admin-reset-password` بالظبط → الصق `supabase/functions/admin-reset-password/index.ts` → Deploy. (مفيش Secrets إضافية.)
+بعدها في الإعدادات → المستخدمين تلاقي زرار "باسورد" جنب كل مستخدم.
+
+## 6) الأوفلاين
+- الفني يفتح أوامره ويشوف تفاصيلها ويسجل وصول/مهام/تقرير/توقيع/صور من غير نت، وكله بيترفع تلقائي لما النت يرجع (شريط أعلى الشاشة بيبين الحالة).
+- المخزن والمنتجات والمستخدمين والرسائل لازم نت (عشان الرصيد يفضل سليم).
+- أول تسجيل دخول لازم يكون أونلاين.

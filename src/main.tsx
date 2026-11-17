@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import { AuthProvider } from './auth';
 import App from './App';
+import { startOfflineSync } from './lib/offline';
 
 class Boundary extends Component<{ children: ReactNode }, { e: Error | null }> {
   state = { e: null as Error | null };
@@ -20,6 +21,7 @@ class Boundary extends Component<{ children: ReactNode }, { e: Error | null }> {
   }
 }
 
+startOfflineSync();
 const root = document.getElementById('root')!;
 root.dataset.ok = '1';
 createRoot(root).render(

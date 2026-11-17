@@ -20,7 +20,8 @@
     "@capacitor/share": "^6.0.0",
     "exceljs": "^4.4.0",
     "html2canvas": "^1.4.1",
-    "jspdf": "^2.5.2"
+    "jspdf": "^2.5.2",
+    "idb-keyval": "^6.2.1"
   },
   "devDependencies": {
     "@capacitor/android": "^6.1.0",

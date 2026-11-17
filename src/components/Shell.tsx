@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { LogOut, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../auth';
 import { roleLabel } from '../types';
+import OfflineBar from './OfflineBar';
+import { clearUserCache, pendingCount } from '../lib/offline';
 
 export interface NavItem {
   to: string;
@@ -15,6 +17,18 @@ export interface NavItem {
 export default function Shell({ nav }: { nav: NavItem[] }) {
   const { profile, signOut, session } = useAuth();
   const [unread, setUnread] = useState(0);
+  const [tick, setTick] = useState(0); // bumped after an offline sync => pages reload their data
+  useEffect(() => {
+    const f = () => setTick((t) => t + 1);
+    window.addEventListener('prosmart:synced', f);
+    return () => window.removeEventListener('prosmart:synced', f);
+  }, []);
+  const logout = async () => {
+    const n = await pendingCount();
+    if (n > 0 && !window.confirm(`في ${n} تغيير لسه ماترفعش وهيضيع لو خرجت. تخرج برضه؟`)) return;
+    if (session) await clearUserCache(session.user.id);
+    signOut();
+  };
   useEffect(() => {
     if (!session) return;
     const go = async () => {
@@ -44,7 +58,7 @@ export default function Shell({ nav }: { nav: NavItem[] }) {
           </div>
         </div>
         <button
-          onClick={signOut}
+          onClick={logout}
           className="flex items-center gap-1 rounded-lg border border-navy-600 px-3 py-2 text-sm text-white/80 active:bg-navy-700"
         >
           <LogOut size={16} />
@@ -52,8 +66,9 @@ export default function Shell({ nav }: { nav: NavItem[] }) {
         </button>
       </header>
 
+      <OfflineBar />
       <main className="flex-1 px-4 pb-28 pt-4">
-        <Outlet />
+        <Outlet key={tick} />
       </main>
 
       <nav

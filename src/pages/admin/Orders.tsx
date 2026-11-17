@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Plus } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useAuth } from '../../auth';
 import { supabase } from '../../lib/supabase';
 import Photos from '../../components/Photos';
 import OrderDetails from '../../components/OrderDetails';
@@ -13,7 +14,10 @@ interface Row {
   id: string;
   order_no: number;
   client_name: string;
+  client_phone?: string | null;
   location_text: string;
+  location_url?: string | null;
+  details?: string | null;
   scheduled_at: string;
   status: string;
   team_leader_id: string | null;
@@ -29,6 +33,25 @@ interface Row {
 export default function Orders() {
   const [rows, setRows] = useState<Row[]>([]);
   const [open, setOpen] = useState(false);
+  const { profile } = useAuth();
+  const canManage = !!profile?.can_manage_orders; // only the admin(s) the owner authorised
+  const [editing, setEditing] = useState<string | null>(null);
+  const [err, setErr] = useState('');
+
+  const remove = async (r: Row) => {
+    if (!window.confirm(`حذف أمر #${r.order_no} (${r.client_name}) نهائيًا بكل مهامه وتقاريره وصوره؟ مفيش رجوع.`)) return;
+    setErr('');
+    // best effort: remove the files too
+    const [{ data: ph }, { data: rep }] = await Promise.all([
+      supabase.from('work_order_photos').select('storage_path').eq('work_order_id', r.id),
+      supabase.from('site_reports').select('signature_path').eq('work_order_id', r.id).maybeSingle(),
+    ]);
+    const { error } = await supabase.rpc('delete_work_order', { wo: r.id });
+    if (error) return setErr(error.message);
+    const files = [...(ph ?? []).map((p) => p.storage_path as string), rep?.signature_path as string | undefined].filter(Boolean) as string[];
+    if (files.length) await supabase.storage.from('work-files').remove(files);
+    load();
+  };
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -55,6 +78,7 @@ export default function Orders() {
           أمر جديد
         </button>
       </div>
+      {err && <p className="mb-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-200">{err}</p>}
       {open && (
         <NewOrder
           onDone={() => {
@@ -72,6 +96,25 @@ export default function Orders() {
               </b>
               <Badge s={r.status} />
             </div>
+            {canManage && (
+              <div className="mt-2 flex gap-2 text-xs">
+                <button onClick={() => setEditing(editing === r.id ? null : r.id)} className="flex items-center gap-1 rounded-lg border border-navy-600 px-2.5 py-1">
+                  <Pencil size={13} /> تعديل
+                </button>
+                <button onClick={() => remove(r)} className="flex items-center gap-1 rounded-lg border border-red-300/50 px-2.5 py-1 text-red-200">
+                  <Trash2 size={13} /> حذف
+                </button>
+              </div>
+            )}
+            {editing === r.id && (
+              <EditOrder
+                row={r}
+                onDone={() => {
+                  setEditing(null);
+                  load();
+                }}
+              />
+            )}
             <div className="mt-1 text-sm text-white/60">{r.location_text}</div>
             <div className="text-sm text-white/60">{fmt(r.scheduled_at)}</div>
             <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
@@ -248,6 +291,65 @@ function NewOrder({ onDone }: { onDone: () => void }) {
       <button disabled={busy} className={btn + ' w-full'}>
         {busy ? 'جاري الإرسال...' : 'إرسال أمر الشغل'}
       </button>
+    </form>
+  );
+}
+
+function EditOrder({ row, onDone }: { row: Row; onDone: () => void }) {
+  const local = (iso: string) => {
+    const d = new Date(iso);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+  const [f, setF] = useState({
+    client_name: row.client_name ?? '',
+    client_phone: row.client_phone ?? '',
+    location_text: row.location_text ?? '',
+    location_url: row.location_url ?? '',
+    scheduled_at: local(row.scheduled_at),
+    details: row.details ?? '',
+    team_leader_id: row.team_leader_id ?? '',
+  });
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr('');
+    const { error } = await supabase
+      .from('work_orders')
+      .update({
+        client_name: f.client_name,
+        client_phone: f.client_phone,
+        location_text: f.location_text,
+        location_url: f.location_url || null,
+        details: f.details || null,
+        scheduled_at: new Date(f.scheduled_at).toISOString(),
+        team_leader_id: f.team_leader_id || null,
+      })
+      .eq('id', row.id);
+    setBusy(false);
+    if (error) return setErr(error.message);
+    onDone();
+  };
+
+  return (
+    <form onSubmit={save} className="mt-3 space-y-2 rounded-xl bg-navy-800 p-3">
+      <L t="اسم العميل"><input required className={inp} value={f.client_name} onChange={set('client_name')} /></L>
+      <L t="رقم العميل"><input required type="tel" dir="ltr" className={inp} value={f.client_phone} onChange={set('client_phone')} /></L>
+      <L t="العنوان"><input required className={inp} value={f.location_text} onChange={set('location_text')} /></L>
+      <L t="رابط اللوكيشن"><input dir="ltr" className={inp} value={f.location_url} onChange={set('location_url')} /></L>
+      <L t="الميعاد"><input required type="datetime-local" className={inp} value={f.scheduled_at} onChange={set('scheduled_at')} /></L>
+      <L t="التفاصيل"><textarea rows={3} className={inp} value={f.details} onChange={set('details')} /></L>
+      <L t="التيم ليدر">
+        <select className={inp} value={f.team_leader_id} onChange={set('team_leader_id')}>
+          {row.work_order_techs.map((t) => (<option key={t.tech_id} value={t.tech_id}>{t.profiles?.full_name}</option>))}
+        </select>
+      </L>
+      {err && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-200">{err}</p>}
+      <button disabled={busy} className={btn + ' w-full'}>{busy ? 'جاري الحفظ...' : 'حفظ التعديل'}</button>
     </form>
   );
 }
