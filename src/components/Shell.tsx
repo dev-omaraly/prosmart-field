@@ -27,7 +27,11 @@ export default function Shell({ nav }: { nav: NavItem[] }) {
     };
     go();
     const t = setInterval(go, 30000);
-    return () => clearInterval(t);
+    window.addEventListener('prosmart:push', go);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('prosmart:push', go);
+    };
   }, [session]);
 
   return (

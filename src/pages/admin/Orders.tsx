@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import Photos from '../../components/Photos';
+import OrderDetails from '../../components/OrderDetails';
 import { Badge, L, btn, card, fmt, inp, taskLabel } from '../../ui';
 
 interface Tech {
@@ -107,6 +108,7 @@ export default function Orders() {
             <div className="mt-3">
               <Photos orderId={r.id} />
             </div>
+            <OrderDetails order={r} />
           </div>
         ))}
         {!rows.length && <p className="text-white/50">مفيش أوامر لسه.</p>}

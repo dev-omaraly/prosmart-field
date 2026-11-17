@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Bell, ClipboardList, FileText, Package, Settings as Cog, Wrench } from 'lucide-react';
+import { Bell, ClipboardList, FileText, Package, PackageMinus, Settings as Cog, Wrench } from 'lucide-react';
 import { useAuth } from './auth';
 import { homePath, type Role } from './types';
 import Shell, { type NavItem } from './components/Shell';
@@ -9,6 +9,9 @@ import Placeholder from './pages/Placeholder';
 import Stock from './pages/Stock';
 import Reports from './pages/admin/Reports';
 import Inbox from './pages/Inbox';
+import InboxItem from './pages/InboxItem';
+import Issue from './pages/Issue';
+import PushBridge from './components/PushBridge';
 import Settings from './pages/Settings';
 import Orders from './pages/admin/Orders';
 import TechOrders from './pages/TechOrders';
@@ -17,6 +20,7 @@ import TechOrder from './pages/TechOrder';
 const adminNav: NavItem[] = [
   { to: '/admin', label: 'الأوامر', icon: ClipboardList, end: true },
   { to: '/admin/stock', label: 'المخزن', icon: Package },
+  { to: '/admin/issue', label: 'صرف', icon: PackageMinus },
   { to: '/admin/reports', label: 'التقارير', icon: FileText },
   { to: '/admin/inbox', label: 'التنبيهات', icon: Bell },
   { to: '/admin/settings', label: 'الإعدادات', icon: Cog },
@@ -28,6 +32,7 @@ const techNav: NavItem[] = [
 ];
 const storeNav: NavItem[] = [
   { to: '/store', label: 'المخزن', icon: Package, end: true },
+  { to: '/store/issue', label: 'صرف', icon: PackageMinus },
   { to: '/store/inbox', label: 'التنبيهات', icon: Bell },
   { to: '/store/settings', label: 'الإعدادات', icon: Cog },
 ];
@@ -56,6 +61,7 @@ function Home() {
 export default function App() {
   return (
     <HashRouter>
+      <PushBridge />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Home />} />
@@ -70,7 +76,9 @@ export default function App() {
         >
           <Route index element={<Orders />} />
           <Route path="stock" element={<Stock />} />
+          <Route path="issue" element={<Issue />} />
           <Route path="inbox" element={<Inbox />} />
+          <Route path="inbox/:nid" element={<InboxItem />} />
           <Route path="settings" element={<Settings />} />
           <Route path="reports" element={<Reports />} />
         </Route>
@@ -85,6 +93,7 @@ export default function App() {
         >
           <Route index element={<TechOrders />} />
           <Route path="inbox" element={<Inbox />} />
+          <Route path="inbox/:nid" element={<InboxItem />} />
           <Route path="settings" element={<Settings />} />
           <Route path=":id" element={<TechOrder />} />
         </Route>
@@ -98,7 +107,9 @@ export default function App() {
           }
         >
           <Route index element={<Stock />} />
+          <Route path="issue" element={<Issue />} />
           <Route path="inbox" element={<Inbox />} />
+          <Route path="inbox/:nid" element={<InboxItem />} />
           <Route path="settings" element={<Settings />} />
         </Route>
 

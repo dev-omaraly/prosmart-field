@@ -5,6 +5,9 @@ const config: CapacitorConfig = {
   appName: 'Pro Smart',
   webDir: 'dist',
   backgroundColor: '#003a5f',
+  plugins: {
+    PushNotifications: { presentationOptions: ['badge', 'sound', 'alert'] },
+  },
 };
 
 export default config;

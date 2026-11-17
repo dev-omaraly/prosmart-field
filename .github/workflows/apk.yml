@@ -2,6 +2,11 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write   # to publish the APK as a Release
 
 jobs:
   apk:
@@ -15,19 +20,50 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
       - run: npm install
-      - run: npm run build
+
+      - name: Build web app
+        run: npm run build
+        env:
+          # push is switched on only if the Firebase secret exists
+          VITE_PUSH_ENABLED: ${{ secrets.GOOGLE_SERVICES_JSON != '' && '1' || '0' }}
+
       - name: Add Android platform if missing
         run: '[ -d android ] || npx cap add android'
-      - name: Add camera and location permissions
+
+      - name: Firebase config (push notifications)
+        env:
+          GS: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          f=android/app/src/main/AndroidManifest.xml
-          grep -q 'permission.CAMERA' $f || sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <application#' $f
+          if [ -n "$GS" ]; then printf '%s' "$GS" > android/app/google-services.json; echo "google-services.json written"; else echo "::warning::GOOGLE_SERVICES_JSON secret missing - APK will be built WITHOUT push notifications"; fi
+
+      - name: Icons, sound, permissions, version
+        run: python3 ci/patch_android.py
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+
       - run: npx cap sync android
-      - name: Build debug APK
+
+      # fixed signing key => every new APK installs as an update over the old one (no uninstall needed)
+      - name: Use fixed signing key
+        run: mkdir -p ~/.android && cp ci/debug.keystore ~/.android/debug.keystore
+
+      - name: Build APK
         working-directory: android
         run: ./gradlew assembleDebug
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ProSmart.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: prosmart-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ProSmart.apk
+
+      - name: Publish as Release (stable download link)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest ProSmart.apk --title "Pro Smart APK (build ${{ github.run_number }})" --notes "آخر نسخة من التطبيق. حمّل ProSmart.apk وثبّته فوق القديمة."

@@ -13,12 +13,18 @@
     "lucide-react": "^0.453.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0"
+    "react-router-dom": "^6.26.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/push-notifications": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capacitor/share": "^6.0.0",
+    "exceljs": "^4.4.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2"
   },
   "devDependencies": {
     "@capacitor/android": "^6.1.0",
     "@capacitor/cli": "^6.1.0",
-    "@capacitor/core": "^6.1.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

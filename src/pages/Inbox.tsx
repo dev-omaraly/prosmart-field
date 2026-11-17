@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabase';
 import { L, btn, card, fmt, inp } from '../ui';
@@ -12,6 +13,7 @@ interface Item {
 export default function Inbox() {
   const { profile, session } = useAuth();
   const uid = session!.user.id;
+  const base = useLocation().pathname.replace(/\/inbox.*$/, '');
   const [items, setItems] = useState<Item[]>([]);
 
   const load = useCallback(async () => {
@@ -24,12 +26,9 @@ export default function Inbox() {
   }, [uid]);
   useEffect(() => {
     load();
+    window.addEventListener('prosmart:push', load);
+    return () => window.removeEventListener('prosmart:push', load);
   }, [load]);
-
-  const markRead = async (id: string) => {
-    await supabase.from('notification_recipients').update({ read_at: new Date().toISOString() }).eq('notification_id', id).eq('user_id', uid);
-    load();
-  };
 
   return (
     <div className="space-y-4">
@@ -37,13 +36,13 @@ export default function Inbox() {
       {profile?.role === 'admin' && <Compose onSent={load} />}
       <div className="space-y-2">
         {items.map((i) => (
-          <button key={i.notification_id} onClick={() => !i.read_at && markRead(i.notification_id)} className={card + ' block w-full text-start ' + (i.read_at ? 'opacity-60' : 'border-brand/60')}>
-            <div className="flex justify-between">
+          <Link key={i.notification_id} to={`${base}/inbox/${i.notification_id}`} className={card + ' block w-full text-start active:bg-navy-700 ' + (i.read_at ? 'opacity-60' : 'border-brand/60')}>
+            <div className="flex justify-between gap-2">
               <b>{!i.read_at && '● '}{i.notifications?.title}</b>
-              <span className="text-xs text-white/50">{i.notifications && fmt(i.notifications.created_at)}</span>
+              <span className="whitespace-nowrap text-xs text-white/50">{i.notifications && fmt(i.notifications.created_at)}</span>
             </div>
-            {i.notifications?.body && <p className="mt-1 whitespace-pre-wrap text-sm text-white/80">{i.notifications.body}</p>}
-          </button>
+            {i.notifications?.body && <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-white/80">{i.notifications.body}</p>}
+          </Link>
         ))}
         {!items.length && <p className="text-white/50">مفيش تنبيهات.</p>}
       </div>
